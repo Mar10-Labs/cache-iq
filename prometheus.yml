@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'cacheiq'
+    scrape_interval: 5s
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['cacheiq:8080']
+        labels:
+          application: 'cacheiq'

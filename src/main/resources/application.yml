@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: cacheiq
+  datasource:
+    url: jdbc:postgresql://postgres:5432/cacheiq
+    username: cacheiq
+    password: cacheiq
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: redis
+      port: 6379
+  main:
+    banner-mode: off
+
+server:
+  port: 8080
+
+# LLM Provider (Groq for dev/test)
+llm:
+  provider:
+    groq:
+      enabled: true
+      api-key: ${LLM_PROVIDER_GROQ_API_KEY:}
+      model: llama-3.3-70b-versatile
+      base-url: https://api.groq.com/openai/v1
+      timeout: 5000
+
+# PII Detection
+pii:
+  sidecar:
+    url: http://localhost:3000
+    timeout: 30
+
+# Embedding
+embedding:
+  model:
+    path: models/all-MiniLM-L6-v2.onnx
+    dimensions: 384
+
+# Cache
+cache:
+  similarity-threshold: 0.8
+  default-ttl-hours: 24
+
+# OpenAPI
+springdoc:
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+  api-docs:
+    path: /v3/api-docs
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    metrics:
+      enabled: true
+  metrics:
+    tags:
+      application: cacheiq
+    export:
+      prometheus:
+        enabled: true
+        step: 1m
