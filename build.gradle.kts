@@ -78,3 +78,11 @@ java {
         languageVersion.set(JavaLanguageVersion.of(21))
     }
 }
+
+tasks.named<Jar>("jar") {
+    exclude("**/models/**")
+}
+
+tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    exclude("**/models/**")
+}

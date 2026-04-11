@@ -23,4 +23,7 @@ logs/
 # OpenCode project-specific skills
 .opencode/
 
+# Local docs (Medium article, etc.)
+.docs/
+
 .env
