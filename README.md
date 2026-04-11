@@ -1,99 +1,110 @@
 # CacheIQ - LLM Cost Optimization Layer
 
 [![Version](https://img.shields.io/badge/version-4.0.0-blue)
-![Kotlin](https://img.shields.io/badge/kotlin-21-blue)
-![Spring Boot](https://img.shields.io/badge/spring_boot-3.2-green)
-![Docker](https://img.shields.io/badge/docker-ready-blue)
+[![Kotlin](https://img.shields.io/badge/kotlin-21-blue)
+[![Spring Boot](https://img.shields.io/badge/spring_boot-3.2-green)
+[![Docker](https://img.shields.io/badge/docker-ready-blue)
 
-CacheIQ es un proxy de cache semántico que reduce los costos de inferencia LLM mediante cache de respuestas basado en embeddings.
+CacheIQ is a semantic cache proxy that reduces LLM inference costs by caching responses based on embeddings.
 
-## Estado - V1 ✅ Funcional
+## Status - V1 ✅ Complete
 
-### Implementado
-- ✅ Proxy con cache semántico (pgvector + similaridad coseno)
-- ✅ Mock de embedding (hash-based)
-- ✅ Mock de Groq API (respuestas predefinidas)
-- ✅ Métricas (Micrometer + Prometheus + Grafana)
-- ✅ Swagger UI para testing
+### Implemented
+- ✅ Semantic cache proxy (pgvector + cosine similarity)
+- ✅ Embedding mock (hash-based)
+- ✅ Groq API mock (predefined responses)
+- ✅ Metrics (Micrometer + Prometheus + Grafana)
+- ✅ Swagger UI for testing
 
-### Pendiente V2
-- 🚧 Embedding real (ONNX all-MiniLM-L6-v2)
-- 🚧 Groq API real (WebClient)
-- 🚧 PII Detection real
-- 🚧 Tests unitarios
+### Pending V2
+- 🚧 Real embedding (ONNX all-MiniLM-L6-v2)
+- 🚧 Real Groq API (WebClient)
+- 🚧 Real PII Detection
+- 🚧 Additional tests
 
 ## Quick Start - Docker Compose
 
 ```bash
-# 1. Clonar y entrar
-git clone https://github.com/kaeron-dev/cacheiq && cd cacheiq
+# 1. Clone and enter
+git clone https://github.com/Mar10-Labs/cache-iq && cd cache-iq
 
-# 2. Configurar (opcional - ya incluye mock)
+# 2. Setup (optional - already includes mock)
 cp .env.example .env
 
-# 3. Levantar servicios
+# 3. Start services
 docker compose up -d
 
-# 4. Verificar servicios
+# 4. Verify services
 curl http://localhost:8081/actuator/health
 
-# 5. Primera llamada - MISS
+# 5. First call - MISS
 curl -X POST http://localhost:8081/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hola"}], "model":"llama-3.3-70b-versatile"}'
+  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
 
-# 6. Segunda llamada - HIT (usa cache)
+# 6. Second call - HIT (uses cache)
 curl -X POST http://localhost:8081/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hola"}], "model":"llama-3.3-70b-versatile"}'
+  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
 ```
 
-## URLs de Servicios
+## Response Headers
 
-| Servicio | URL |
+| Header | Description |
+|--------|-------------|
+| `X-Cache` | HIT or MISS |
+| `X-Cache-Llm-Model` | LLM model used |
+| `X-Cache-Llm-Provider` | Provider (groq, claude, etc.) |
+| `X-Cache-Embedding-Model` | Embedding model |
+
+## Service URLs
+
+| Service | URL |
 |----------|-----|
 | Proxy API | http://localhost:8081 |
 | Swagger UI | http://localhost:8081/swagger-ui.html |
 | Prometheus | http://localhost:8081/actuator/prometheus |
 | Grafana | http://localhost:3002 (admin/admin) |
+| PostgreSQL | localhost:5433 |
+| Prometheus | localhost:9090 |
 
-## Arquitectura Hexagonal
+## Hexagonal Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
 │  ProxyController│────▶│SemanticCacheUse │────▶│   GroqAdapter   │
 │      (API)      │     │    (UseCase)    │     │  (Mock V1)      │
 └─────────────────┘     └────────┬────────┘     └─────────────────┘
-                                 │
-                    ┌────────────┼────────────┐
-                    ▼            ▼            ▼
-           ┌────────────┐ ┌────────────┐ ┌─────────────┐
-           │EmbeddingAdp│ │PgVectorCache│ │CacheMetrics │
-           │  (Mock)    │ │  Adapter   │ │  Adapter    │
-           └────────────┘ └────────────┘ └─────────────┘
+                                  │
+                     ┌────────────┼────────────┐
+                     ▼            ▼            ▼
+            ┌────────────┐ ┌────────────┐ ┌─────────────┐
+            │EmbeddingAdp│ │PgVectorCache│ │CacheMetrics │
+            │  (Mock)    │ │  Adapter   │ │  Adapter    │
+            └────────────┘ └────────────┘ └─────────────┘
 ```
 
-### Capas (Arquitectura Hexagonal)
-- **API**: ProxyController - recibe requests HTTP
-- **Application**: SemanticCacheUseCase - lógica de negocio
-- **Domain**: Entidades, puertos de entrada/salida
-- **Infrastructure**: Adaptadores (Groq, PostgreSQL, Metrics)
+### Layers (Hexagonal Architecture)
+- **API**: ProxyController - receives HTTP requests
+- **Application**: SemanticCacheUseCase - business logic
+- **Domain**: Entities, input/output ports
+- **Infrastructure**: Adapters (Groq, PostgreSQL, Metrics)
 
 ## Stack
 
-| Tecnología | Propósito |
+| Technology | Purpose |
 |------------|-----------|
-| Kotlin 21 | Lenguaje |
+| Kotlin 21 | Language |
 | Spring Boot 3.2 | Framework |
-| PostgreSQL + pgvector | Cache de embeddings |
-| Redis | Sesiones (presente) |
-| Micrometer + Prometheus | Métricas |
+| PostgreSQL + pgvector | Embedding cache |
+| Redis | Sessions (present) |
+| Micrometer + Prometheus | Metrics |
 | Grafana | Dashboard |
-| Docker Compose | Orquestación |
+| Docker Compose | Orchestration |
 
-## Desarrollo Local
+## Local Development
 
 ```bash
 # Build
@@ -101,8 +112,11 @@ curl -X POST http://localhost:8081/proxy/chat \
 
 # Run
 ./gradlew bootRun
+
+# Test
+./gradlew test
 ```
 
-## Licencia
+## License
 
-MIT - github.com/kaeron-dev/cacheiq
+MIT - github.com/Mar10-Labs/cache-iq
