@@ -7,17 +7,17 @@
 
 CacheIQ is a semantic cache proxy that reduces LLM inference costs by caching responses based on embeddings.
 
-## Status - V1 ✅ Complete
+## Status - V2 In Progress
 
-### Implemented
+### Implemented (V1)
 - ✅ Semantic cache proxy (pgvector + cosine similarity)
 - ✅ Embedding mock (hash-based)
 - ✅ Groq API mock (predefined responses)
 - ✅ Metrics (Micrometer + Prometheus + Grafana)
 - ✅ Swagger UI for testing
 
-### Pending V2
-- 🚧 Real embedding (ONNX all-MiniLM-L6-v2)
+### V2 Progress
+- 🚧 Real embedding (ONNX all-MiniLM-L6-v2) ✅ DONE
 - 🚧 Real Groq API (WebClient)
 - 🚧 Real PII Detection
 - 🚧 Additional tests
