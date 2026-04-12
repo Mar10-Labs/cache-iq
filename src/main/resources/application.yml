@@ -31,6 +31,8 @@ pii:
   sidecar:
     url: http://localhost:3000
     timeout: 30
+  risk-analyzer:
+    personal-indicators: soy,mi nombre,mis datos,cancela,suscripcion,mi cuenta,name,last name,address,phone,account,my name,cancel,subscription,email
 
 # Embedding
 embedding:
