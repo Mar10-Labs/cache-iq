@@ -13,6 +13,7 @@ data class CacheEntry(
     val llmProvider: String = "groq",
     val tenantId: TenantId,
     val piiRiskLevel: PiiRiskLevel = PiiRiskLevel.STRUCTURED,
+    val totalTokens: Int = 0,
     val createdAt: Instant = Instant.now()
 )
 
