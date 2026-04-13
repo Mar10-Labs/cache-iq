@@ -1,119 +1,113 @@
 # CacheIQ - LLM Cost Optimization Layer
 
-[![Version](https://img.shields.io/badge/version-4.1.0-blue)
 [![Kotlin](https://img.shields.io/badge/kotlin-21-blue)
 [![Spring Boot](https://img.shields.io/badge/spring_boot-3.2-green)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)
 
-CacheIQ es un proxy de cache semántico que reduce costos de LLM almacenando respuestas basadas en embeddings.
+CacheIQ es un proxy de cache semántico que reduce costos de LLM almacenando respuestas basadas en embeddings. Si un usuario hace una pregunta similar a otra anterior, se devuelve la respuesta guardada sin llamar al LLM.
 
-## Estado - Completo ✅
+## Inicio Rápido
 
-### Features implementadas
-- ✅ Proxy de cache semántico (pgvector + cosine similarity)
-- ✅ Embedding: ONNX all-MiniLM-L6-v2 (384 dims, ~90MB)
-- ✅ Groq API real (no mock)
-- ✅ Métricas (Micrometer + Prometheus + Grafana)
-- ✅ PII Router (Regex detector - para demo)
-- ✅ Tests (104 tests, >65% coverage)
-- ✅ Grafana Dashboard automático
-
-## Inicio Rápido (Elige tu opción)
-
-### Opción A: Ejecutar todo con Docker
-
-**Importante:** Antes de ejecutar, crear el archivo `.env` basado en `.env.example`:
-
-```bash
-cp .env.example .env
-# Editar .env y agregar tu GROQ_API_KEY
-```
+### Opción A: Docker (todo incluido)
 
 ```bash
 # 1. Clonar y ejecutar
 git clone https://github.com/Mar10-Labs/cache-iq.git
 cd cache-iq
+cp .env.example .env  # agregar GROQ_API_KEY
 docker compose up -d
-
-# 2. Probar
-curl -X POST http://localhost:8081/proxy/chat \
-  -H "Content-Type: application/json" \
-  -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
 ```
 
-**Servicios:** App (8081), PostgreSQL (5434), Prometheus (9090), Grafana (3002)
+**Servicios:**
+| Servicio | URL |
+|----------|-----|
+| App | http://localhost:8081 |
+| Swagger UI | http://localhost:8081/swagger-ui.html |
+| Grafana Dashboard | http://localhost:3002/dashboards (admin/admin) |
+| Prometheus | http://localhost:9090 |
+| PostgreSQL | localhost:5434 (cacheiq/cacheiq) |
 
 ---
 
-### Opción B: Ejecutar Local (IntelliJ)
+### Opción B: Local (IntelliJ/IDE)
 
-**Servicios necesarios:** PostgreSQL, Prometheus, Grafana
-
-```bash
-# 1. Levantar servicios (sin la app)
-docker compose up -d postgres prometheus grafana
-```
-
-**IDE (IntelliJ):**
-- Main class: `com.cacheiq.CacheIqApplicationKt`
-- Environment: `GROQ_API_KEY=tu_key`
-
-```bash
-# 2. Ejecutar
-./gradlew bootRun
-
-# 3. Probar (puerto 8080)
-curl -X POST http://localhost:8080/proxy/chat \
-  -H "Content-Type: application/json" \
-  -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
-```
+1. Levantar servicios: `docker compose up -d postgres prometheus grafana`
+2. IDE: Run config → Main class: `com.cacheiq.CacheIqApplicationKt`, Environment: `GROQ_API_KEY=tu_key`
+3. Ejecutar: `./gradlew bootRun` (puerto 8080)
 
 ---
 
-## Probar el Cache (Casos de uso)
+## Probar el Proyecto
+
+### Verificar que funciona
 
 ```bash
-# MISS - primera vez (llama a Groq)
+#Primera pregunta (MISS - llama a Groq)
 curl -X POST http://localhost:8081/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
+  -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
 
-# HIT - repetición (usa cache, no llama a Groq)
+#Repetir pregunta (HIT - usa cache, no llama a Groq)
 curl -X POST http://localhost:8081/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
-
-# Headers de respuesta muestran HIT/MISS
-curl -i -X POST http://localhost:8081/proxy/chat \
-  -H "Content-Type: application/json" \
-  -H "X-Tenant-Id: demo" \
-  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}' \
-  | grep X-Cache
+  -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
 ```
+
+### Verificar resultados
+
+| Herramienta | Qué ver |
+|-------------|---------|
+| **Grafana** | http://localhost:3002/dashboards → "CacheIQ Dashboard" - HIT/MISS, tokens ahorrados |
+| **Swagger** | http://localhost:8081/swagger-ui.html - probá endpoints |
+| **PostgreSQL** | localhost:5434 - tabla `cache_entries` con respuestas cacheadas |
+| **Response Headers** | `X-Cache: HIT` o `X-Cache: MISS` |
 
 ---
 
-## Modelo de Embedding
+## Modelo de Embedding (ONNX)
 
 El proyecto usa **all-MiniLM-L6-v2** (~90MB, 384 dimensiones) para convertir texto en vectores.
 
-**Fuente:** [HuggingFace - sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
+**Fuente:** [HuggingFace](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
 
-Este modelo se chose por ser liviano y rápido, ideal para demos. Modelos más grandes (ej: 768 dims)dan mejores resultados pero pesan más.
+Este modelo se選擇 por ser liviano y rápido. Genera embeddings de 384 dimensiones para buscar similitud semántica en PostgreSQL.
 
-**Archivos necesarios (ya incluidos):**
+**Archivos en el proyecto:**
 ```
 src/main/resources/models/
-├── model.onnx           (red neuronal)
-├── tokenizer.json       (vocabulario)
-└── tokenizer_config.json (config)
+├── model.onnx           (red neuronal que genera vectores)
+├── tokenizer.json       (divide texto en tokens)
+└── tokenizer_config.json (config del tokenizer)
 ```
 
-**Detección de PII:** El proyecto incluye RegexPiiDetector para detectar datos sensibles en prompts. Para producción, existe Presidio (más avanzado pero ~1.3GB).
+Los tres deben ser del mismo modelo.
+
+---
+
+## Por qué el modelo viaja en el request
+
+El modelo es parte de la **cache key**. La misma pregunta puede dar diferentes respuestas según el modelo:
+
+| Pregunta | Modelo | Respuesta |
+|----------|--------|-----------|
+| "Hello" | llama-3.3 | "Hi, how can I help?" |
+| "Hello" | gpt-4 | "Hello! What can I do for you?" |
+
+Si un usuario usa un modelo diferente, no debería recibir respuestas cacheadas de otro modelo. Por eso la cache key incluye: **embedding + modelo + provider + tenant**.
+
+El modelo se pasa en el request y se configurable via `application.yml`.
+
+---
+
+## Detección de PII (Datos Sensibles)
+
+El proyecto incluye detección de datos sensibles en prompts para no guardarlos en cache.
+
+**RegexPiiDetector:** Rápido, sin dependencias, para demo.
+
+**Presidio:** Más avanzado (ML-based), pero requiere imagen Docker de ~1.3GB. El código existe pero no está habilitado.
 
 ---
 
@@ -121,101 +115,53 @@ src/main/resources/models/
 
 | Header | Description |
 |--------|-------------|
-| `X-Cache` | HIT or MISS |
-| `X-Cache-Llm-Model` | LLM model used |
-| `X-Cache-Llm-Provider` | Provider (groq, etc.) |
-| `X-Cache-Embedding-Model` | Embedding model |
+| `X-Cache` | HIT (respuesta desde cache) o MISS (llamó al LLM) |
+| `X-Cache-Llm-Model` | Modelo LLM usado |
+| `X-Cache-Llm-Provider` | Proveedor (groq, openai, etc.) |
+| `X-Cache-Embedding-Model` | Modelo de embedding |
 
-## Por qué el modelo viaje en el request
+---
 
-El modelo forma parte de la **cache key**. Si "Hello" con `llama-3.3` da diferente respuesta que con `gpt-4`, se guardan separadas.
+## Configuración
 
-Cache key = embedding + modelo + provider + tenant
+### Variables de entorno
 
-## Service URLs
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `GROQ_API_KEY` | - | API key de Groq (requerido) |
+| `LLM_MODEL` | llama-3.3-70b-versatile | Modelo por defecto |
+| `SIMILARITY_THRESHOLD` | 0.5 | Umbral de similitud (0-1) |
 
-| Service | URL |
-|----------|-----|
-| Proxy API (Docker) | http://localhost:8081 |
-| Proxy API (Local) | http://localhost:8080 |
-| Swagger UI | http://localhost:8081/swagger-ui.html |
-| Prometheus | http://localhost:9090 |
-| Grafana (Dashboard) | http://localhost:3002 (admin/admin) |
-| PostgreSQL | localhost:5434 |
-
-```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│  ProxyController│────▶│SemanticCacheUse │────▶│   GroqAdapter   │
-│      (API)      │     │    (UseCase)    │     │  (Groq API)     │
-└─────────────────┘     └────────┬────────┘     └─────────────────┘
-                                   │
-                      ┌────────────┼────────────┐
-                      ▼            ▼            ▼
-             ┌────────────┐ ┌────────────┐ ┌─────────────┐
-             │EmbeddingAdp│ │PgVectorCache│ │CacheMetrics │
-             │(ONNX/Hash) │ │  Adapter   │ │  Adapter    │
-             └────────────┘ └────────────┘ └─────────────┘
+### Docker
+```bash
+export GROQ_API_KEY=gsk_...
+docker compose up -d
 ```
 
-### Layers (Hexagonal Architecture)
-- **API**: ProxyController - receives HTTP requests
-- **Application**: SemanticCacheUseCase - business logic
-- **Domain**: Entities, input/output ports
-- **Infrastructure**: Adapters (Groq, PostgreSQL, Metrics)
+### Local (IntelliJ)
+Run Configuration → Environment Variables → `GROQ_API_KEY=gsk_...`
+
+---
 
 ## Stack
 
 | Technology | Purpose |
-|------------|-----------|
-| Kotlin 21 | Language |
-| Spring Boot 3.2 | Framework |
-| PostgreSQL + pgvector | Embedding cache (similarity search) |
-| Micrometer + Prometheus | Metrics |
+|------------|--------|
+| Kotlin 21 + Spring Boot 3.2 | App |
+| PostgreSQL + pgvector | Cache semántico |
+| ONNX Runtime | Embeddings |
+| Micrometer + Prometheus | Métricas |
 | Grafana | Dashboard |
-| Docker Compose | Orchestration |
-| Groq API | LLM (gratuito, ~9-10 req/min) |
+| Groq API | LLM (gratuito) |
+| Docker Compose | Orquestación |
 
-## Local Development
+## Tests
 
 ```bash
-# Build
-./gradlew build
-
-# Run
-./gradlew bootRun
-
-# Test
 ./gradlew test
+./gradlew jacocoTestReport
 ```
 
-## Configuración
-
-### Variables de entorno requeridas
-
-| Variable | Descripción | Ejemplo |
-|----------|-------------|---------|
-| `GROQ_API_KEY` | API key de Groq | `gsk_...` |
-| `POSTGRES_HOST` | Host de PostgreSQL | `localhost` |
-| `POSTGRES_PORT` | Puerto de PostgreSQL | `5434` |
-| `POSTGRES_USER` | Usuario de PostgreSQL | `cacheiq` |
-| `POSTGRES_PASSWORD` | Password de PostgreSQL | `cacheiq` |
-
-### Configuración de Docker
-
-```bash
-# Con archivo .env
-export GROQ_API_KEY="gsk_..."
-docker compose up -d
-
-# O inline
-GROQ_API_KEY="gsk_..." docker compose up -d
-```
-
-### Configuración Local (IntelliJ)
-
-1. Run Configuration → Environment Variables
-2. Agregar: `GROQ_API_KEY=gsk_...;POSTGRES_HOST=localhost;POSTGRES_PORT=5434;POSTGRES_USER=cacheiq;POSTGRES_PASSWORD=cacheiq`
-
-## License
+---
 
 MIT - github.com/Mar10-Labs/cache-iq
