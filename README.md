@@ -1,25 +1,26 @@
 # CacheIQ - LLM Cost Optimization Layer
 
-[![Version](https://img.shields.io/badge/version-4.0.2-blue)
+[![Version](https://img.shields.io/badge/version-4.1.0-blue)
 [![Kotlin](https://img.shields.io/badge/kotlin-21-blue)
 [![Spring Boot](https://img.shields.io/badge/spring_boot-3.2-green)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)
 
 CacheIQ es un proxy de cache semántico que reduce costos de LLM almacenando respuestas basadas en embeddings.
 
-## Estado - V4 Completo (Groq API Real)
+## Estado - Completo ✅
 
 ### Features implementadas
 - ✅ Proxy de cache semántico (pgvector + cosine similarity)
-- ✅ Embedding: Hash (default) o ONNX (opcional)
+- ✅ Embedding: ONNX all-MiniLM-L6-v2 (384 dims, ~90MB)
 - ✅ Groq API real (no mock)
 - ✅ Métricas (Micrometer + Prometheus + Grafana)
-- ✅ PII Router Inteligente (None/Structured/Contextual)
+- ✅ PII Router (Regex detector - para demo)
 - ✅ Tests (104 tests, >65% coverage)
+- ✅ Grafana Dashboard automático
 
 ## Inicio Rápido (Elige tu opción)
 
-### Opción A: Ejecutar con Docker (Recomendado)
+### Opción A: Ejecutar todo con Docker
 
 **Importante:** Antes de ejecutar, crear el archivo `.env` basado en `.env.example`:
 
@@ -29,75 +30,40 @@ cp .env.example .env
 ```
 
 ```bash
-# 1. Clonar el repositorio
+# 1. Clonar y ejecutar
 git clone https://github.com/Mar10-Labs/cache-iq.git
 cd cache-iq
-
-# 2. Ejecutar servicios
 docker compose up -d
 
-# 3. Verificar que esté corriendo
-docker compose ps
-
-# 4. Probar el endpoint
+# 2. Probar
 curl -X POST http://localhost:8081/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
   -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
 ```
 
-**Servicios disponibles:**
-| Servicio | URL |
-|----------|-----|
-| App | http://localhost:8081 |
-| Swagger UI | http://localhost:8081/swagger-ui.html |
-| PostgreSQL | localhost:5434 |
-| Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3002 (admin/admin) |
+**Servicios:** App (8081), PostgreSQL (5434), Prometheus (9090), Grafana (3002)
 
 ---
 
-### Opción B: Ejecutar Local (IntelliJ/IDE)
+### Opción B: Ejecutar Local (IntelliJ)
 
-#### Prerrequisitos
-- JDK 21
-- PostgreSQL 16+ con extensión pgvector
+**Servicios necesarios:** PostgreSQL, Prometheus, Grafana
 
-#### Paso 1: Iniciar PostgreSQL con Docker
 ```bash
-# Solo PostgreSQL
-docker run -d \
-  --name cacheiq-postgres \
-  -e POSTGRES_DB=cacheiq \
-  -e POSTGRES_USER=cacheiq \
-  -e POSTGRES_PASSWORD=cacheiq \
-  -p 5434:5432 \
-  pgvector/pgvector:pg16
+# 1. Levantar servicios (sin la app)
+docker compose up -d postgres prometheus grafana
 ```
 
-#### Paso 2: Configurar IDE (IntelliJ)
-
-**Run Configuration:**
+**IDE (IntelliJ):**
 - Main class: `com.cacheiq.CacheIqApplicationKt`
-- VM options: (none needed)
-- Environment variables: (none needed - application.yml tiene defaults)
+- Environment: `GROQ_API_KEY=tu_key`
 
-**O si preferís:**
 ```bash
-# Desde terminal
-export GROQ_API_KEY=your_key_here
+# 2. Ejecutar
 ./gradlew bootRun
-```
 
-#### Paso 3: Ejecutar
-```bash
-# En IntelliJ: Shift+F10
-# O terminal:
-./gradlew bootRun
-```
-
-#### Paso 4: Probar
-```bash
+# 3. Probar (puerto 8080)
 curl -X POST http://localhost:8080/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
@@ -106,69 +72,48 @@ curl -X POST http://localhost:8080/proxy/chat \
 
 ---
 
-### Con modelos ONNX reales (opcional)
-
-Los modelos ONNX (~90MB) se incluyen automáticamente en el build de Docker. Para local:
+## Probar el Cache (Casos de uso)
 
 ```bash
-# Los modelos ya están en src/main/resources/models/
-# Solo ejecutar
+# MISS - primera vez (llama a Groq)
+curl -X POST http://localhost:8081/proxy/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: demo" \
+  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
 
-./gradlew bootRun
-```
+# HIT - repetición (usa cache, no llama a Groq)
+curl -X POST http://localhost:8081/proxy/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: demo" \
+  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'
 
-Para rebuild con Docker:
-```bash
-docker compose build --no-cache
-docker compose up -d
+# Headers de respuesta muestran HIT/MISS
+curl -i -X POST http://localhost:8081/proxy/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: demo" \
+  -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}' \
+  | grep X-Cache
 ```
 
 ---
 
-## Modelos de Embedding
+## Modelo de Embedding
 
-### Configuración actual
+El proyecto usa **all-MiniLM-L6-v2** (~90MB, 384 dimensiones) para convertir texto en vectores.
 
-El proyecto incluye el modelo `all-MiniLM-L6-v2` (384 dimensiones, ~90MB) que convierte texto en vectores semánticos.
+**Fuente:** [HuggingFace - sentence-transformers/all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
 
+Este modelo se chose por ser liviano y rápido, ideal para demos. Modelos más grandes (ej: 768 dims)dan mejores resultados pero pesan más.
+
+**Archivos necesarios (ya incluidos):**
 ```
 src/main/resources/models/
-├── model.onnx              (90MB - Red neuronal)
-├── tokenizer.json         (466KB - Vocabulario: palabra → ID)
-└── tokenizer_config.json  (350B - Configuración del tokenizador)
+├── model.onnx           (red neuronal)
+├── tokenizer.json       (vocabulario)
+└── tokenizer_config.json (config)
 ```
 
-### Cómo cambiar de modelo
-
-Si necesitás usar un modelo de embedding diferente (ej: `paraphrase-mpnet-base-v2` con 768 dimensiones), debés cambiar **los tres archivos**:
-
-| Archivo | Qué es | Necesario cambiarlo |
-|---------|--------|---------------------|
-| `model.onnx` | La red neuronal | ✅ Sí |
-| `tokenizer.json` | Vocabulario del modelo | ✅ Sí |
-| `tokenizer_config.json` | Config del tokenizer | ✅ Sí |
-
-**Los tres deben ser del mismo modelo** - no se pueden mezclar.
-
-### Ejemplo: Cambiar a modelo de 768 dimensiones
-
-1. Descargar los 3 archivos del nuevo modelo (ej: de HuggingFace)
-2. Reemplazar los archivos en `src/main/resources/models/`
-3. Actualizar `application.yml`:
-   ```yaml
-   embedding:
-     model:
-       dimensions: 768  # cambiar de 384 a 768
-   ```
-4. Rebuild del proyecto
-
-### Por qué los tres archivos
-
-- `model.onnx` → genera los embeddings
-- `tokenizer.json` → sabe cómo dividir el texto en tokens
-- `tokenizer_config.json → sabe cómo procesar esos tokens
-
-Si cambias `model.onnx` pero dejás el tokenizer del modelo anterior, no va a funcionar correctamente.
+**Detección de PII:** El proyecto incluye RegexPiiDetector para detectar datos sensibles en prompts. Para producción, existe Presidio (más avanzado pero ~1.3GB).
 
 ---
 
@@ -178,22 +123,14 @@ Si cambias `model.onnx` pero dejás el tokenizer del modelo anterior, no va a fu
 |--------|-------------|
 | `X-Cache` | HIT or MISS |
 | `X-Cache-Llm-Model` | LLM model used |
-| `X-Cache-Llm-Provider` | Provider (groq, claude, etc.) |
+| `X-Cache-Llm-Provider` | Provider (groq, etc.) |
 | `X-Cache-Embedding-Model` | Embedding model |
 
 ## Por qué el modelo viaje en el request
 
-El modelo forma parte de la **cache key**. Si un usuario usa "Hello" con `llama-3.3` y otro con `gpt-4`, las respuestas pueden ser distintas - se guardan separadas en cache.
+El modelo forma parte de la **cache key**. Si "Hello" con `llama-3.3` da diferente respuesta que con `gpt-4`, se guardan separadas.
 
-La búsqueda en cache usa:
-1. **Embedding del prompt** - búsqueda semántica
-2. **Modelo** - qué modelo LLM generó la respuesta
-3. **Provider** - proveedor (groq, openai, etc.)
-4. **Tenant** - aislamiento entre clientes
-
-Si no se incluyera el modelo, un usuario con `gpt-4` recibiría respuestas de `llama-3.3` - incorrecto.
-
-El modelo es configurable via `application.yml` o variables de entorno.
+Cache key = embedding + modelo + provider + tenant
 
 ## Service URLs
 
@@ -203,10 +140,8 @@ El modelo es configurable via `application.yml` o variables de entorno.
 | Proxy API (Local) | http://localhost:8080 |
 | Swagger UI | http://localhost:8081/swagger-ui.html |
 | Prometheus | http://localhost:9090 |
-| Grafana | http://localhost:3002 (admin/admin) |
+| Grafana (Dashboard) | http://localhost:3002 (admin/admin) |
 | PostgreSQL | localhost:5434 |
-
-## Hexagonal Architecture
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
