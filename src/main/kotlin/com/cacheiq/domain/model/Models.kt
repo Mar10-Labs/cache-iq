@@ -71,7 +71,7 @@ data class CacheResponse(
 
 data class ChatRequest(
     val model: String = "llama-3.3-70b-versatile",
-    val messages: List<ChatMessage>,
+    val messages: List<ChatMessage> = emptyList(),
     val temperature: Double = 0.7,
     val maxTokens: Int = 1000
 )
@@ -79,7 +79,9 @@ data class ChatRequest(
 data class ChatMessage(
     val role: String,
     val content: String
-)
+) {
+    constructor() : this("", "")
+}
 
 data class ChatResponse(
     val id: String,
