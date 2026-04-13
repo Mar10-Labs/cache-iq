@@ -22,8 +22,7 @@ docker compose build --no-cache
 ## Ports
 
 - App: `8081` (not 8080)
-- PostgreSQL: `5433`
-- Redis: `6380`
+- PostgreSQL: `5434`
 - Prometheus: `9090`
 - Grafana: `3002`
 
@@ -52,7 +51,6 @@ Hexagonal (ports & adapters):
 - Spring Boot 3.2.0
 - Gradle 8.5
 - PostgreSQL + pgvector
-- Redis
 - ONNX Runtime 1.19.2 (for V2 embeddings)
 
 ## V2 Priorities

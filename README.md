@@ -21,6 +21,13 @@ CacheIQ es un proxy de cache semántico que reduce costos de LLM almacenando res
 
 ### Opción A: Ejecutar con Docker (Recomendado)
 
+**Importante:** Antes de ejecutar, crear el archivo `.env` basado en `.env.example`:
+
+```bash
+cp .env.example .env
+# Editar .env y agregar tu GROQ_API_KEY
+```
+
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/Mar10-Labs/cache-iq.git
@@ -58,7 +65,7 @@ curl -X POST http://localhost:8081/proxy/chat \
 
 #### Paso 1: Iniciar PostgreSQL con Docker
 ```bash
-# Solo PostgreSQL (no necesita Redis)
+# Solo PostgreSQL
 docker run -d \
   --name cacheiq-postgres \
   -e POSTGRES_DB=cacheiq \
@@ -174,6 +181,20 @@ Si cambias `model.onnx` pero dejás el tokenizer del modelo anterior, no va a fu
 | `X-Cache-Llm-Provider` | Provider (groq, claude, etc.) |
 | `X-Cache-Embedding-Model` | Embedding model |
 
+## Por qué el modelo viaje en el request
+
+El modelo forma parte de la **cache key**. Si un usuario usa "Hello" con `llama-3.3` y otro con `gpt-4`, las respuestas pueden ser distintas - se guardan separadas en cache.
+
+La búsqueda en cache usa:
+1. **Embedding del prompt** - búsqueda semántica
+2. **Modelo** - qué modelo LLM generó la respuesta
+3. **Provider** - proveedor (groq, openai, etc.)
+4. **Tenant** - aislamiento entre clientes
+
+Si no se incluyera el modelo, un usuario con `gpt-4` recibiría respuestas de `llama-3.3` - incorrecto.
+
+El modelo es configurable via `application.yml` o variables de entorno.
+
 ## Service URLs
 
 | Service | URL |
@@ -184,7 +205,6 @@ Si cambias `model.onnx` pero dejás el tokenizer del modelo anterior, no va a fu
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3002 (admin/admin) |
 | PostgreSQL | localhost:5434 |
-| Redis | localhost:6381 (presente pero no usado) |
 
 ## Hexagonal Architecture
 

@@ -27,9 +27,6 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.1")
     implementation("org.springframework.boot:spring-boot-starter-jdbc:3.2.0")
     
-    // Redis
-    implementation("org.springframework.boot:spring-boot-starter-data-redis:3.2.0")
-    
     // ONNX Runtime - correct group ID
     implementation("com.microsoft.onnxruntime:onnxruntime:1.19.2")
     
@@ -80,9 +77,7 @@ java {
 }
 
 tasks.named<Jar>("jar") {
-    exclude("**/models/**")
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
-    exclude("**/models/**")
 }
