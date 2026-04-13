@@ -81,9 +81,7 @@ data class ChatRequest(
 data class ChatMessage(
     val role: String,
     val content: String
-) {
-    constructor() : this("", "")
-}
+)
 
 data class ChatResponse(
     val id: String,
