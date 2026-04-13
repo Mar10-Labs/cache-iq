@@ -59,11 +59,7 @@ class ProxyController(
                         content = result.response,
                         model = result.llmModel,
                         finishReason = "stop",
-                        usage = Usage(
-                            promptTokens = if (result.hit) 0 else 100,
-                            completionTokens = if (result.hit) 0 else 50,
-                            totalTokens = if (result.hit) 0 else 150
-                        )
+                        usage = result.usage ?: Usage(0, 0, 0)
                     )
                 )
         } catch (e: Exception) {
