@@ -43,4 +43,12 @@ open class CacheMetricsAdapter(
             .register(meterRegistry)
             .increment(tokens.toDouble())
     }
+    
+    override fun recordTokensFromCache(tenant: String, provider: String, tokens: Long) {
+        Counter.builder("cacheiq_tokens_from_cache_total")
+            .tag("tenant", tenant)
+            .tag("provider", provider)
+            .register(meterRegistry)
+            .increment(tokens.toDouble())
+    }
 }

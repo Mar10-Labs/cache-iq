@@ -4,6 +4,8 @@ import com.cacheiq.domain.model.ChatRequest
 import com.cacheiq.domain.model.CacheResponse
 import com.cacheiq.domain.model.CacheEntry
 import com.cacheiq.domain.model.TenantId
+import com.cacheiq.domain.model.EmbeddingVector
+import com.cacheiq.domain.model.ChatResponse
 import com.cacheiq.domain.port.input.CacheInputPort
 import com.cacheiq.domain.port.output.EmbeddingPort
 import com.cacheiq.domain.port.output.LlmClientPort
@@ -45,123 +47,45 @@ class SemanticCacheUseCase(
         val effectiveProvider = provider ?: "groq"
         val startTime = System.currentTimeMillis()
         
-        val lastMessage = request.messages.lastOrNull()
-        if (lastMessage == null || lastMessage.content.isBlank()) {
-            logger.warn("No messages or empty content in request")
-            return CacheResponse(
-                hit = false,
-                response = "No message provided",
-                llmModel = request.model,
-                llmProvider = effectiveProvider,
-                embeddingModel = "none"
-            )
-        }
+        val prompt = validatePrompt(request) ?: return CacheResponse(
+            hit = false,
+            response = "No message provided",
+            llmModel = request.model,
+            llmProvider = effectiveProvider,
+            embeddingModel = "none"
+        )
         
-        val prompt = lastMessage.content
-        logger.info("Processing prompt: ${prompt.take(50)}...")
+        val embedding = generateEmbedding(prompt, request.model, effectiveProvider) ?: return CacheResponse(
+            hit = false,
+            response = "Failed to generate embedding",
+            llmModel = request.model,
+            llmProvider = effectiveProvider,
+            embeddingModel = "error"
+        )
         
-        val embedding = try {
-            embeddingAdapter.embed(prompt)
-        } catch (e: Exception) {
-            logger.error("Failed to generate embedding: ${e.message}", e)
-            return CacheResponse(
-                hit = false,
-                response = "Failed to generate embedding: ${e.message}",
-                llmModel = request.model,
-                llmProvider = effectiveProvider,
-                embeddingModel = "error"
-            )
-        }
-        
-        if (embedding.values.isEmpty()) {
-            logger.error("Embedding is empty")
-            return CacheResponse(
-                hit = false,
-                response = "Failed to generate embedding",
-                llmModel = request.model,
-                llmProvider = effectiveProvider,
-                embeddingModel = "error"
-            )
-        }
-        
-        val cacheEntries = try {
-            cacheRepository.findSimilar(
-                embedding = embedding,
-                embeddingModelVersion = config.getEmbeddingModel(),
-                llmModelVersion = request.model,
-                llmProvider = effectiveProvider,
-                tenantId = TenantId(tenantId),
-                threshold = 0.8
-            )
-        } catch (e: Exception) {
-            logger.error("Failed to search cache: ${e.message}", e)
-            emptyList()
-        }
-        
-        if (cacheEntries.isNotEmpty()) {
-            val best = cacheEntries.first()
-            val latency = System.currentTimeMillis() - startTime
-            
-            metrics.recordHit(tenantId, effectiveProvider)
-            metrics.recordLatency(tenantId, effectiveProvider, latency.toDouble())
-            
-            logger.info("Cache HIT - similarity: ${embedding.cosineSimilarity(best.embedding)}")
-            
+        val cachedEntry = searchCache(embedding, request.model, effectiveProvider, tenantId)
+        if (cachedEntry != null) {
+            recordHitMetrics(tenantId, effectiveProvider, startTime, cachedEntry.totalTokens.toLong())
             return CacheResponse(
                 hit = true,
-                response = best.response,
-                llmModel = best.llmModel,
-                llmProvider = best.llmProvider,
-                embeddingModel = best.embeddingModel,
-                similarity = embedding.cosineSimilarity(best.embedding)
+                response = cachedEntry.response,
+                llmModel = cachedEntry.llmModel,
+                llmProvider = cachedEntry.llmProvider,
+                embeddingModel = cachedEntry.embeddingModel,
+                similarity = embedding.cosineSimilarity(cachedEntry.embedding)
             )
         }
         
-        logger.info("Cache MISS - calling LLM")
+        val llmResponse = callLlm(request, effectiveProvider) ?: return CacheResponse(
+            hit = false,
+            response = "LLM call failed",
+            llmModel = request.model,
+            llmProvider = effectiveProvider,
+            embeddingModel = config.getEmbeddingModel()
+        )
         
-        val llmResponse = try {
-            llmClient.complete(request)
-        } catch (e: Exception) {
-            logger.error("LLM call failed: ${e.message}", e)
-            return CacheResponse(
-                hit = false,
-                response = "LLM call failed: ${e.message}",
-                llmModel = request.model,
-                llmProvider = effectiveProvider,
-                embeddingModel = config.getEmbeddingModel()
-            )
-        }
-        
-        val hasPii = try {
-            piiDetector.containsPii(llmResponse.content)
-        } catch (e: Exception) {
-            logger.warn("PII detection failed: ${e.message}")
-            false
-        }
-        
-        if (!hasPii) {
-            try {
-                val entry = CacheEntry(
-                    prompt = prompt,
-                    response = llmResponse.content,
-                    embedding = embedding,
-                    llmModel = llmResponse.model,
-                    llmProvider = effectiveProvider,
-                    tenantId = TenantId(tenantId)
-                )
-                cacheRepository.save(entry)
-                logger.info("Saved to cache")
-            } catch (e: Exception) {
-                logger.error("Failed to save to cache: ${e.message}", e)
-            }
-        } else {
-            logger.info("Response contains PII - not caching")
-        }
-        
-        val latency = System.currentTimeMillis() - startTime
-        metrics.recordMiss(tenantId, effectiveProvider)
-        metrics.recordLatency(tenantId, effectiveProvider, latency.toDouble())
-        metrics.recordTokensSaved(tenantId, effectiveProvider, llmResponse.usage.totalTokens.toLong())
+        saveToCacheIfNeeded(prompt, embedding, llmResponse, effectiveProvider, tenantId)
+        recordMissMetrics(tenantId, effectiveProvider, startTime, llmResponse.usage.totalTokens.toLong())
         
         return CacheResponse(
             hit = false,
@@ -170,5 +94,101 @@ class SemanticCacheUseCase(
             llmProvider = effectiveProvider,
             embeddingModel = config.getEmbeddingModel()
         )
+    }
+    
+    private fun validatePrompt(request: ChatRequest): String? {
+        val lastMessage = request.messages.lastOrNull()
+        if (lastMessage == null || lastMessage.content.isBlank()) {
+            logger.warn("No messages or empty content in request")
+            return null
+        }
+        val prompt = lastMessage.content
+        logger.info("Processing prompt: ${prompt.take(50)}...")
+        return prompt
+    }
+    
+    private suspend fun generateEmbedding(prompt: String, llmModel: String, provider: String): EmbeddingVector? {
+        return try {
+            val embedding = embeddingAdapter.embed(prompt)
+            if (embedding.values.isEmpty()) {
+                logger.error("Embedding is empty")
+                return null
+            }
+            embedding
+        } catch (e: Exception) {
+            logger.error("Failed to generate embedding: ${e.message}", e)
+            null
+        }
+    }
+    
+    private suspend fun searchCache(embedding: EmbeddingVector, llmModel: String, provider: String, tenantId: String): CacheEntry? {
+        return try {
+            val entries = cacheRepository.findSimilar(
+                embedding = embedding,
+                embeddingModelVersion = config.getEmbeddingModel(),
+                llmModelVersion = llmModel,
+                llmProvider = provider,
+                tenantId = TenantId(tenantId),
+                threshold = 0.8
+            )
+            entries.firstOrNull()
+        } catch (e: Exception) {
+            logger.error("Failed to search cache: ${e.message}", e)
+            null
+        }
+    }
+    
+    private suspend fun callLlm(request: ChatRequest, provider: String): ChatResponse? {
+        return try {
+            llmClient.complete(request)
+        } catch (e: Exception) {
+            logger.error("LLM call failed: ${e.message}", e)
+            null
+        }
+    }
+    
+    private suspend fun saveToCacheIfNeeded(prompt: String, embedding: EmbeddingVector, llmResponse: ChatResponse, provider: String, tenantId: String) {
+        val hasPii = try {
+            piiDetector.containsPii(llmResponse.content)
+        } catch (e: Exception) {
+            logger.warn("PII detection failed: ${e.message}")
+            false
+        }
+        
+        if (hasPii) {
+            logger.info("Response contains PII - not caching")
+            return
+        }
+        
+        try {
+            val entry = CacheEntry(
+                prompt = prompt,
+                response = llmResponse.content,
+                embedding = embedding,
+                llmModel = llmResponse.model,
+                llmProvider = provider,
+                tenantId = TenantId(tenantId),
+                totalTokens = llmResponse.usage.totalTokens
+            )
+            cacheRepository.save(entry)
+            logger.info("Saved to cache")
+        } catch (e: Exception) {
+            logger.error("Failed to save to cache: ${e.message}", e)
+        }
+    }
+    
+    private fun recordHitMetrics(tenantId: String, provider: String, startTime: Long, tokens: Long) {
+        val latency = System.currentTimeMillis() - startTime
+        metrics.recordHit(tenantId, provider)
+        metrics.recordLatency(tenantId, provider, latency.toDouble())
+        metrics.recordTokensFromCache(tenantId, provider, tokens)
+        logger.info("Cache HIT - latency: ${latency}ms")
+    }
+    
+    private fun recordMissMetrics(tenantId: String, provider: String, startTime: Long, tokens: Long) {
+        val latency = System.currentTimeMillis() - startTime
+        metrics.recordMiss(tenantId, provider)
+        metrics.recordLatency(tenantId, provider, latency.toDouble())
+        metrics.recordTokensSaved(tenantId, provider, tokens)
     }
 }
