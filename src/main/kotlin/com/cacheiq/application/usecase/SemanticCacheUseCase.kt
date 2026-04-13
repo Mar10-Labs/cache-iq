@@ -6,6 +6,7 @@ import com.cacheiq.domain.model.CacheEntry
 import com.cacheiq.domain.model.TenantId
 import com.cacheiq.domain.model.EmbeddingVector
 import com.cacheiq.domain.model.ChatResponse
+import com.cacheiq.domain.model.Usage
 import com.cacheiq.domain.port.input.CacheInputPort
 import com.cacheiq.domain.port.output.EmbeddingPort
 import com.cacheiq.domain.port.output.LlmClientPort
@@ -72,7 +73,8 @@ class SemanticCacheUseCase(
                 llmModel = cachedEntry.llmModel,
                 llmProvider = cachedEntry.llmProvider,
                 embeddingModel = cachedEntry.embeddingModel,
-                similarity = embedding.cosineSimilarity(cachedEntry.embedding)
+                similarity = embedding.cosineSimilarity(cachedEntry.embedding),
+                usage = Usage(0, 0, cachedEntry.totalTokens)
             )
         }
         
@@ -92,7 +94,8 @@ class SemanticCacheUseCase(
             response = llmResponse.content,
             llmModel = llmResponse.model,
             llmProvider = effectiveProvider,
-            embeddingModel = config.getEmbeddingModel()
+            embeddingModel = config.getEmbeddingModel(),
+            usage = llmResponse.usage
         )
     }
     

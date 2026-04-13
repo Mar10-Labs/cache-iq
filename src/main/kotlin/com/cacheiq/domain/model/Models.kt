@@ -67,7 +67,8 @@ data class CacheResponse(
     val llmModel: String,
     val llmProvider: String,
     val embeddingModel: String,
-    val similarity: Float? = null
+    val similarity: Float? = null,
+    val usage: Usage? = null
 )
 
 data class ChatRequest(
