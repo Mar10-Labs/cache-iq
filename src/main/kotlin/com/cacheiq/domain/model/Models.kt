@@ -47,20 +47,6 @@ enum class PiiRiskLevel { NONE, STRUCTURED, CONTEXTUAL }
 
 enum class RouteType { TECHNICAL, TRANSACTIONAL, SUPPORT }
 
-data class RoutePolicy(
-    val pathPattern: String,
-    val similarityThreshold: Double = 0.8,
-    val ttlSeconds: Long = 86400,
-    val extractTextFn: (String) -> String = { it },
-    val tenantId: String,
-    val embeddingModelVersion: String = "all-MiniLM-L6-v2",
-    val llmProvider: String = "groq",
-    val llmModelVersion: String = "llama-3.3-70b-versatile",
-    val topKForReranking: Int = 1,
-    val piiCheckEnabled: Boolean = true,
-    val routeType: RouteType = RouteType.SUPPORT
-)
-
 data class CacheResponse(
     val hit: Boolean,
     val response: String,
