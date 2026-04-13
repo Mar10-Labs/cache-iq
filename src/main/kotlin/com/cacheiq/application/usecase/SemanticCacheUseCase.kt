@@ -3,7 +3,6 @@ package com.cacheiq.application.usecase
 import com.cacheiq.domain.model.ChatRequest
 import com.cacheiq.domain.model.CacheResponse
 import com.cacheiq.domain.model.CacheEntry
-import com.cacheiq.domain.model.Constants
 import com.cacheiq.domain.model.TenantId
 import com.cacheiq.domain.port.input.CacheInputPort
 import com.cacheiq.domain.port.output.EmbeddingPort
@@ -11,6 +10,7 @@ import com.cacheiq.domain.port.output.LlmClientPort
 import com.cacheiq.domain.port.output.PiiDetectorPort
 import com.cacheiq.domain.port.output.MetricsPort
 import com.cacheiq.domain.repository.CacheRepository
+import com.cacheiq.infrastructure.config.CacheIqConfig
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 
@@ -20,7 +20,8 @@ class SemanticCacheUseCase(
     private val llmClient: LlmClientPort,
     private val piiDetector: PiiDetectorPort,
     private val cacheRepository: CacheRepository,
-    private val metrics: MetricsPort
+    private val metrics: MetricsPort,
+    private val config: CacheIqConfig
 ) : CacheInputPort {
     
     private val logger = LoggerFactory.getLogger(SemanticCacheUseCase::class.java)
@@ -86,7 +87,7 @@ class SemanticCacheUseCase(
         val cacheEntries = try {
             cacheRepository.findSimilar(
                 embedding = embedding,
-                embeddingModelVersion = Constants.EMBEDDING_MODEL,
+                embeddingModelVersion = config.getEmbeddingModel(),
                 llmModelVersion = request.model,
                 llmProvider = effectiveProvider,
                 tenantId = TenantId(tenantId),
@@ -127,7 +128,7 @@ class SemanticCacheUseCase(
                 response = "LLM call failed: ${e.message}",
                 llmModel = request.model,
                 llmProvider = effectiveProvider,
-                embeddingModel = Constants.EMBEDDING_MODEL
+                embeddingModel = config.getEmbeddingModel()
             )
         }
         
@@ -167,7 +168,7 @@ class SemanticCacheUseCase(
             response = llmResponse.content,
             llmModel = llmResponse.model,
             llmProvider = effectiveProvider,
-            embeddingModel = Constants.EMBEDDING_MODEL
+            embeddingModel = config.getEmbeddingModel()
         )
     }
 }
