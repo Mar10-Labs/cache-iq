@@ -1,49 +1,55 @@
-spring:
-  application:
-    name: cacheiq
-  datasource:
-    url: jdbc:postgresql://postgres:5432/cacheiq
-    username: cacheiq
-    password: cacheiq
-    driver-class-name: org.postgresql.Driver
-  data:
-    redis:
-      host: redis
-      port: 6379
-  main:
-    banner-mode: off
-
-server:
-  port: 8080
-
-# LLM Provider (Groq for dev/test)
 llm:
   provider:
     groq:
-      enabled: true
-      api-key: ${LLM_PROVIDER_GROQ_API_KEY:}
-      model: llama-3.3-70b-versatile
-      base-url: https://api.groq.com/openai/v1
-      timeout: 5000
+      enabled: ${GROQ_ENABLED:true}
+      api-key: ${GROQ_API_KEY:}
+      model: ${LLM_MODEL:llama-3.3-70b-versatile}
+      provider: ${LLM_PROVIDER:groq}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+      timeout: ${GROQ_TIMEOUT:5000}
 
-# PII Detection
-pii:
-  sidecar:
-    url: http://localhost:3000
-    timeout: 30
-
-# Embedding
 embedding:
   model:
-    path: models/all-MiniLM-L6-v2.onnx
-    dimensions: 384
+    path: ${EMBEDDING_MODEL_PATH:models/all-MiniLM-L6-v2.onnx}
+    name: ${EMBEDDING_MODEL:all-MiniLM-L6-v2}
+    dimensions: ${EMBEDDING_DIMENSIONS:384}
 
-# Cache
 cache:
-  similarity-threshold: 0.8
-  default-ttl-hours: 24
+  similarity-threshold: ${SIMILARITY_THRESHOLD:0.5}
+  default-ttl-hours: ${CACHE_DEFAULT_TTL_HOURS:24}
 
-# OpenAPI
+spring:
+  application:
+    name: cacheiq
+  config:
+    import: optional:file:./secrets.yml
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/cacheiq}
+    username: ${SPRING_DATASOURCE_USERNAME:cacheiq}
+    password: ${SPRING_DATASOURCE_PASSWORD:cacheiq}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+  main:
+    banner-mode: off
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+pii:
+  sidecar:
+    url: ${PRESIDIO_URL:http://localhost:3000}
+    timeout: ${PRESIDIO_TIMEOUT:30}
+  risk-analyzer:
+    personal-indicators: ${PII_INDICATORS:soy,mi nombre,mis datos,cancela,suscripcion,mi cuenta,name,last name,address,phone,account,my name,cancel,subscription,email,mi correo,mi password,mi contraseña,actualizar datos,cambiar clave}
+
 springdoc:
   swagger-ui:
     enabled: true
@@ -52,13 +58,16 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Actuator
 management:
   endpoints:
     web:
       exposure:
         include: health,info,prometheus,metrics
   endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
     metrics:
       enabled: true
   metrics:
