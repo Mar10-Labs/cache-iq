@@ -3,33 +3,25 @@
 ## Build & Run
 
 ```bash
-# Build (skip tests)
-./gradlew build -x test
-
-# Run tests
-./gradlew test
-
-# Coverage report
-./gradlew jacocoTestReport
-
-# Docker (all services)
+# Docker: PostgreSQL, Prometheus, Grafana, Presidio
 docker compose up -d
 
-# Single service rebuild
-docker compose build --no-cache
+# App: levanta localmente (toma GROQ_API_KEY del .env)
+./gradlew bootRun
 ```
 
 ## Ports
 
-- App: `8081` (not 8080)
-- PostgreSQL: `5434`
-- Prometheus: `9090`
-- Grafana: `3002`
+- App (local): `8080`
+- PostgreSQL: `5435`
+- Prometheus: `9092`
+- Grafana: `3004`
+- Presidio: `3001`
 
 ## API
 
 ```bash
-curl -X POST http://localhost:8081/proxy/chat \
+curl -X POST http://localhost:8080/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
   -d '{"messages":[{"role":"user","content":"Hello"}], "model":"llama-3.3-70b-versatile"}'

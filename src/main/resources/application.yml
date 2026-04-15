@@ -24,7 +24,7 @@ spring:
   config:
     import: optional:file:./secrets.yml
   datasource:
-    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5435}/${DB_NAME:cacheiq}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5436}/${DB_NAME:cacheiq}
     username: ${DB_USER:cacheiq}
     password: ${DB_PASSWORD:cacheiq}
     driver-class-name: org.postgresql.Driver

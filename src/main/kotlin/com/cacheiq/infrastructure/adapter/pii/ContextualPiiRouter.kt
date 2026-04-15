@@ -5,9 +5,11 @@ import com.cacheiq.domain.model.PiiRiskLevel
 import com.cacheiq.domain.model.RouteType
 import com.cacheiq.domain.port.output.PiiDetectorPort
 import org.slf4j.LoggerFactory
+import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Component
 
 @Component
+@Primary
 class ContextualPiiRouter(
     private val riskAnalyzer: QueryRiskAnalyzer,
     private val regexDetector: RegexPiiDetector,

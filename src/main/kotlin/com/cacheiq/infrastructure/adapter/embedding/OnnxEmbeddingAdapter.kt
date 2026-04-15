@@ -54,22 +54,27 @@ class OnnxEmbeddingAdapter(
         val tokenResult = tokenizer.tokenize(text, maxLength)
         val inputIds = tokenResult.first.map { it.toLong() }.toLongArray()
         val attentionMask = tokenResult.second.map { it.toLong() }.toLongArray()
+        val tokenTypeIds = LongArray(inputIds.size) { 0L }
         
         // Create input tensors using explicit LongBuffer
         val inputIdsBuffer = LongBuffer.wrap(inputIds)
         val attentionMaskBuffer = LongBuffer.wrap(attentionMask)
+        val tokenTypeIdsBuffer = LongBuffer.wrap(tokenTypeIds)
         
         val inputIdsTensor = OnnxTensor.createTensor(environment, inputIdsBuffer, longArrayOf(1, inputIds.size.toLong()))
         val attentionMaskTensor = OnnxTensor.createTensor(environment, attentionMaskBuffer, longArrayOf(1, attentionMask.size.toLong()))
+        val tokenTypeIdsTensor = OnnxTensor.createTensor(environment, tokenTypeIdsBuffer, longArrayOf(1, tokenTypeIds.size.toLong()))
         
         // Run inference
         val inputs = mapOf<String, OnnxTensor>(
             "input_ids" to inputIdsTensor,
-            "attention_mask" to attentionMaskTensor
+            "attention_mask" to attentionMaskTensor,
+            "token_type_ids" to tokenTypeIdsTensor
         )
         
         val output = session.run(inputs)
-        val embeddings = output.get(0).value as Array<FloatArray>
+        val rawOutput = output.get(0).value
+        val embeddings = (rawOutput as Array<*>).map { (it as Array<FloatArray>)[0] }.toTypedArray()
         
         // Mean pooling
         val attentionMaskLong = attentionMask.toList()

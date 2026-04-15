@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y openjdk-21-jre-headless && rm -rf /var/
 
 COPY --from=build /app/build/libs/*.jar app.jar
 
-EXPOSE 8080
+EXPOSE 8081
 ENV JAVA_TOOL_OPTIONS="-Dspring.lifecycle.timeout-per-shutdown-phase=30s"
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

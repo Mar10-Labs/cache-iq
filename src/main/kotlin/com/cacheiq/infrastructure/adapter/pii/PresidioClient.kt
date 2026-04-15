@@ -12,13 +12,13 @@ import java.time.Duration
 class PresidioClient(
     private val webClient: WebClient,
     @Value("\${presidio.timeout-ms:30}") private val timeoutMs: Long = 30,
-    @Value("\${presidio.base-url:http://localhost:3000}") private val baseUrl: String = "http://localhost:3000"
+    @Value("\${presidio.base-url:http://localhost:3001}") private val baseUrl: String = "http://localhost:3001"
 ) {
     companion object {
         private const val PII_SCORE_THRESHOLD = 0.85
     }
     
-    data class PresidioRequest(val text: String, val entities: List<String> = listOf("PERSON", "PHONE", "EMAIL", "CREDIT_CARD", "CUIT", "DNI"))
+    data class PresidioRequest(val text: String, val language: String = "en", val entities: List<String> = listOf("PERSON", "PHONE", "EMAIL", "CREDIT_CARD", "CUIT", "DNI"))
     
     data class PresidioResponse(
         val results: List<DetectedEntity>
@@ -35,7 +35,7 @@ class PresidioClient(
     fun analyze(text: String): Mono<List<PiiEntity>> {
         val request = PresidioRequest(text)
         return webClient.post()
-            .uri("$baseUrl/api/v1/analyze")
+            .uri("$baseUrl/analyze")
             .bodyValue(request)
             .retrieve()
             .bodyToMono(PresidioResponse::class.java)

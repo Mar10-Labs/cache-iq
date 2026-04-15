@@ -27,3 +27,5 @@ logs/
 .docs/
 
 .env
+
+AGENTS.md

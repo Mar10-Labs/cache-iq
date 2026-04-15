@@ -2,6 +2,7 @@ package com.cacheiq.infrastructure.adapter.pii
 
 import com.cacheiq.domain.model.PiiEntity
 import com.cacheiq.domain.port.output.PiiDetectorPort
+import org.springframework.context.annotation.Primary
 import org.springframework.stereotype.Component
 
 @Component

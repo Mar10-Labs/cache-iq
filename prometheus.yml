@@ -6,6 +6,6 @@ scrape_configs:
     scrape_interval: 5s
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['cacheiq:8080']
+      - targets: ['192.168.0.70:8080']
         labels:
           application: 'cacheiq'

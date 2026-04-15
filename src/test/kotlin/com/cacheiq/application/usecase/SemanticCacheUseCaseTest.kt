@@ -5,6 +5,7 @@ import com.cacheiq.domain.port.output.EmbeddingPort
 import com.cacheiq.domain.port.output.LlmClientPort
 import com.cacheiq.domain.port.output.PiiDetectorPort
 import com.cacheiq.domain.port.output.MetricsPort
+import com.cacheiq.domain.port.output.TokenCounterPort
 import com.cacheiq.domain.repository.CacheRepository
 import com.cacheiq.infrastructure.config.CacheIqConfig
 import io.mockk.coEvery
@@ -23,6 +24,7 @@ class SemanticCacheUseCaseTest {
     private lateinit var piiDetector: PiiDetectorPort
     private lateinit var cacheRepository: CacheRepository
     private lateinit var metrics: MetricsPort
+    private lateinit var tokenCounter: TokenCounterPort
     private lateinit var useCase: SemanticCacheUseCase
 
     @BeforeEach
@@ -32,13 +34,15 @@ class SemanticCacheUseCaseTest {
         piiDetector = mockk()
         cacheRepository = mockk()
         metrics = mockk()
+        tokenCounter = mockk()
+        every { tokenCounter.countTokens(any()) } returns 5
         val config = mockk<CacheIqConfig> {
             every { getLlmModel(any()) } returns "llama-3.3-70b-versatile"
             every { getLlmProvider() } returns "groq"
             every { getEmbeddingModel() } returns "all-MiniLM-L6-v2"
             every { getSimilarityThreshold() } returns 0.8
         }
-        useCase = SemanticCacheUseCase(embeddingAdapter, llmClient, piiDetector, cacheRepository, metrics, config)
+        useCase = SemanticCacheUseCase(embeddingAdapter, llmClient, piiDetector, cacheRepository, metrics, config, tokenCounter)
     }
 
     @Test
