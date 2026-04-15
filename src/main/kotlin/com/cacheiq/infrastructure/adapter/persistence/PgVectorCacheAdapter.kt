@@ -88,7 +88,7 @@ open class PgVectorCacheAdapter(
         val sql = """
             SELECT id, prompt, response, embedding, embedding_model, llm_model, llm_provider, tenant_id, pii_risk_level
             FROM cache_entries
-            WHERE embedding <=> ?::vector < ?
+            WHERE embedding <=> ?::vector <= ?
               AND embedding_model = ?
               AND llm_model = ?
               AND llm_provider = ?

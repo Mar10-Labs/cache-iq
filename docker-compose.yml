@@ -8,47 +8,27 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "5436:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cacheiq"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  redis:
-    image: redis:7-alpine
+  presidio:
+    image: mcr.microsoft.com/presidio-analyzer:latest
     ports:
-      - "6380:6379"
+      - "3007:3000"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-
-  cacheiq:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - "8081:8080"
-    environment:
-      - SPRING_PROFILES_ACTIVE=dev
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=cacheiq
-      - DB_PASSWORD=cacheiq
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LLM_PROVIDER=groq
-      - LLM_PROVIDER_GROQ_API_KEY=${GROQ_API_KEY:-}
-      - LLM_PROVIDER_GROQ_MODEL=llama-3.3-70b-versatile
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
 
   prometheus:
     image: prom/prometheus:latest
     ports:
-      - "9090:9090"
+      - "9094:9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     extra_hosts:
@@ -57,14 +37,12 @@ services:
   grafana:
     image: grafana/grafana:latest
     ports:
-      - "3002:3000"
+      - "3008:3000"
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning
-    depends_on:
-      - prometheus
 
 volumes:
   postgres_data:

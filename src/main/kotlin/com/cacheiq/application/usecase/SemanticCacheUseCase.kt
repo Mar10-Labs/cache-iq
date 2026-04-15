@@ -136,7 +136,7 @@ class SemanticCacheUseCase(
                 llmModelVersion = llmModel,
                 llmProvider = provider,
                 tenantId = TenantId(tenantId),
-                threshold = 0.8
+                threshold = 1.0 - config.getSimilarityThreshold()
             )
             entries.firstOrNull()
         } catch (e: Exception) {
