@@ -78,7 +78,7 @@ El proyecto usa **all-MiniLM-L6-v2** (~90MB, 384 dimensiones) para convertir tex
 
 **Fuente:** [HuggingFace](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)
 
-Este modelo se選擇 por ser liviano y rápido. Genera embeddings de 384 dimensiones para buscar similitud semántica en PostgreSQL.
+Este modelo se selecciona por ser liviano y rápido. Genera embeddings de 384 dimensiones para buscar similitud semántica en PostgreSQL.
 
 **Archivos en el proyecto:**
 ```
