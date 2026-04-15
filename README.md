@@ -45,7 +45,7 @@ docker compose up -d
 
 ## Probar el Proyecto
 
-### Verificar que funciona
+### Verificar que funciona (prompt idéntico)
 
 ```bash
 #Primera pregunta (MISS - llama a Groq)
@@ -54,12 +54,33 @@ curl -X POST http://localhost:8080/proxy/chat \
   -H "X-Tenant-Id: demo" \
   -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
 
-#Repetir pregunta (HIT - usa cache, no llama a Groq)
+#Repetir pregunta exacta (HIT - usa cache, no llama a Groq)
 curl -X POST http://localhost:8080/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
   -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
 ```
+
+### Verificar que funciona (prompt similar - búsqueda semántica)
+
+```bash
+#Primera pregunta (MISS - llama a Groq)
+curl -X POST http://localhost:8080/proxy/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: demo" \
+  -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
+
+#Segunda pregunta con significado similar (HIT - usa cache semántico)
+#El sistema convierte ambos a embeddings y busca similitud > 80%
+curl -X POST http://localhost:8080/proxy/chat \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-Id: demo" \
+  -d '{"messages":[{"role":"user","content":"Qué es el lenguaje Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
+```
+
+**Por qué es importante:** El cache no busca texto exacto, sino **significado semántico**. 
+- `"Que es Kotlin?"` y `"Qué es el lenguaje Kotlin?"` son diferentes como texto, 
+- pero significado similar → embeddings similares → HIT en cache.
 
 ### Verificar resultados
 
