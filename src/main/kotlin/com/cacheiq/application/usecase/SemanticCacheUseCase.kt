@@ -12,6 +12,7 @@ import com.cacheiq.domain.port.output.EmbeddingPort
 import com.cacheiq.domain.port.output.LlmClientPort
 import com.cacheiq.domain.port.output.PiiDetectorPort
 import com.cacheiq.domain.port.output.MetricsPort
+import com.cacheiq.domain.port.output.TokenCounterPort
 import com.cacheiq.domain.repository.CacheRepository
 import com.cacheiq.infrastructure.config.CacheIqConfig
 import org.slf4j.LoggerFactory
@@ -24,7 +25,8 @@ class SemanticCacheUseCase(
     private val piiDetector: PiiDetectorPort,
     private val cacheRepository: CacheRepository,
     private val metrics: MetricsPort,
-    private val config: CacheIqConfig
+    private val config: CacheIqConfig,
+    private val tokenCounter: TokenCounterPort
 ) : CacheInputPort {
     
     private val logger = LoggerFactory.getLogger(SemanticCacheUseCase::class.java)
@@ -56,6 +58,8 @@ class SemanticCacheUseCase(
             embeddingModel = "none"
         )
         
+        val promptTokens = tokenCounter.countTokens(prompt)
+        
         val embedding = generateEmbedding(prompt, request.model, effectiveProvider) ?: return CacheResponse(
             hit = false,
             response = "Failed to generate embedding",
@@ -66,7 +70,7 @@ class SemanticCacheUseCase(
         
         val cachedEntry = searchCache(embedding, request.model, effectiveProvider, tenantId)
         if (cachedEntry != null) {
-            recordHitMetrics(tenantId, effectiveProvider, startTime, cachedEntry.totalTokens.toLong())
+            recordHitMetrics(tenantId, effectiveProvider, startTime, promptTokens.toLong())
             return CacheResponse(
                 hit = true,
                 response = cachedEntry.response,
@@ -74,7 +78,7 @@ class SemanticCacheUseCase(
                 llmProvider = cachedEntry.llmProvider,
                 embeddingModel = cachedEntry.embeddingModel,
                 similarity = embedding.cosineSimilarity(cachedEntry.embedding),
-                usage = Usage(0, 0, cachedEntry.totalTokens)
+                usage = Usage(0, 0, promptTokens)
             )
         }
         
@@ -152,14 +156,14 @@ class SemanticCacheUseCase(
     
     private suspend fun saveToCacheIfNeeded(prompt: String, embedding: EmbeddingVector, llmResponse: ChatResponse, provider: String, tenantId: String) {
         val hasPii = try {
-            piiDetector.containsPii(llmResponse.content)
+            piiDetector.containsPii(prompt)
         } catch (e: Exception) {
             logger.warn("PII detection failed: ${e.message}")
             false
         }
         
         if (hasPii) {
-            logger.info("Response contains PII - not caching")
+            logger.info("Prompt contains PII - not caching")
             return
         }
         
@@ -185,7 +189,8 @@ class SemanticCacheUseCase(
         metrics.recordHit(tenantId, provider)
         metrics.recordLatency(tenantId, provider, latency.toDouble())
         metrics.recordTokensFromCache(tenantId, provider, tokens)
-        logger.info("Cache HIT - latency: ${latency}ms")
+        metrics.recordTokensCalculated(tenantId, provider, tokens)
+        logger.info("Cache HIT - latency: ${latency}ms, tokens: $tokens")
     }
     
     private fun recordMissMetrics(tenantId: String, provider: String, startTime: Long, tokens: Long) {
@@ -193,5 +198,6 @@ class SemanticCacheUseCase(
         metrics.recordMiss(tenantId, provider)
         metrics.recordLatency(tenantId, provider, latency.toDouble())
         metrics.recordTokensSaved(tenantId, provider, tokens)
+        metrics.recordTokensGroqCalls(tenantId, provider, tokens)
     }
 }

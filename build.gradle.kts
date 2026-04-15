@@ -27,7 +27,7 @@ dependencies {
     implementation("org.postgresql:postgresql:42.7.1")
     implementation("org.springframework.boot:spring-boot-starter-jdbc:3.2.0")
     
-    // ONNX Runtime - correct group ID
+    // ONNX Runtime
     implementation("com.microsoft.onnxruntime:onnxruntime:1.19.2")
     
     // WebClient for Groq
@@ -38,6 +38,9 @@ dependencies {
     
     // Micrometer (Prometheus)
     implementation("io.micrometer:micrometer-registry-prometheus:1.12.2")
+    
+    // JTokkit for token counting
+    implementation("com.knuddels:jtokkit:1.1.0")
     
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test:3.2.0")

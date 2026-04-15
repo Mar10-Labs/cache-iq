@@ -4,6 +4,7 @@ import com.cacheiq.domain.model.CacheEntry
 import com.cacheiq.domain.model.EmbeddingVector
 import com.cacheiq.domain.model.TenantId
 import com.cacheiq.domain.repository.CacheRepository
+import com.cacheiq.infrastructure.config.CacheIqConfig
 import org.slf4j.LoggerFactory
 import org.springframework.jdbc.core.RowMapper
 import org.springframework.jdbc.core.JdbcTemplate
@@ -11,8 +12,11 @@ import org.springframework.stereotype.Repository
 
 @Repository
 open class PgVectorCacheAdapter(
-    private val jdbcTemplate: JdbcTemplate
+    private val jdbcTemplate: JdbcTemplate,
+    private val config: CacheIqConfig
 ) : CacheRepository {
+    
+    private val dimensions: Int get() = config.embeddingDimensions
     
     private val logger = LoggerFactory.getLogger(PgVectorCacheAdapter::class.java)
     
@@ -26,7 +30,7 @@ open class PgVectorCacheAdapter(
                 id VARCHAR(255) PRIMARY KEY,
                 prompt TEXT NOT NULL,
                 response TEXT NOT NULL,
-                embedding vector(384),
+                embedding vector($dimensions),
                 embedding_model VARCHAR(64) NOT NULL,
                 llm_model VARCHAR(64) NOT NULL,
                 llm_provider VARCHAR(32) NOT NULL,
@@ -128,7 +132,7 @@ open class PgVectorCacheAdapter(
     private fun parsePgVectorArray(arrayStr: String): FloatArray {
         val trimmed = arrayStr.trim()
         if (trimmed.isEmpty() || trimmed == "[]") {
-            return FloatArray(384)
+            return FloatArray(dimensions)
         }
         val values = trimmed
             .removeSurrounding("[", "]")
