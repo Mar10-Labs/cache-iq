@@ -1,12 +1,12 @@
 llm:
   provider:
     groq:
-      enabled: ${GROQ_ENABLED:true}
-      api-key: ${GROQ_API_KEY:}
-      model: ${LLM_MODEL:llama-3.3-70b-versatile}
-      provider: ${LLM_PROVIDER:groq}
-      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
-      timeout: ${GROQ_TIMEOUT:5000}
+      enabled: true
+      api-key: ${GROQ_API_KEY:${GROQAPIKEY:}}
+      model: llama-3.3-70b-versatile
+      provider: groq
+      base-url: https://api.groq.com/openai/v1
+      timeout: 5000
 
 embedding:
   model:
@@ -24,9 +24,9 @@ spring:
   config:
     import: optional:file:./secrets.yml
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/cacheiq}
-    username: ${SPRING_DATASOURCE_USERNAME:cacheiq}
-    password: ${SPRING_DATASOURCE_PASSWORD:cacheiq}
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5435}/${DB_NAME:cacheiq}
+    username: ${DB_USER:cacheiq}
+    password: ${DB_PASSWORD:cacheiq}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 10
@@ -45,7 +45,7 @@ server:
 
 pii:
   sidecar:
-    url: ${PRESIDIO_URL:http://localhost:3000}
+    url: ${PRESIDIO_URL:http://localhost:3001}
     timeout: ${PRESIDIO_TIMEOUT:30}
   risk-analyzer:
     personal-indicators: ${PII_INDICATORS:soy,mi nombre,mis datos,cancela,suscripcion,mi cuenta,name,last name,address,phone,account,my name,cancel,subscription,email,mi correo,mi password,mi contraseña,actualizar datos,cambiar clave}

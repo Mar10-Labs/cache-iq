@@ -8,32 +8,38 @@ CacheIQ es un proxy de cache semántico que reduce costos de LLM almacenando res
 
 ## Inicio Rápido
 
-### Opción A: Docker (todo incluido)
+### Requisitos
+- Docker y Docker Compose
+- JDK 21
+- Groq API Key (gratuita en console.groq.com)
+
+### Pasos
 
 ```bash
-# 1. Clonar y ejecutar
+# 1. Clonar y configurar
 git clone https://github.com/Mar10-Labs/cache-iq.git
 cd cache-iq
-cp .env.example .env  # agregar GROQ_API_KEY
+cp .env.example .env
+
+# 2. Editar .env y agregar GROQ_API_KEY
+# Obtener key gratuita en: https://console.groq.com
+
+# 3. Levantar servicios (infraestructura + Presidio)
 docker compose up -d
+
+# 4. Levantar aplicación (usa script que carga .env automáticamente)
+./start.sh
 ```
 
 **Servicios:**
 | Servicio | URL |
 |----------|-----|
-| App | http://localhost:8081 |
-| Swagger UI | http://localhost:8081/swagger-ui.html |
-| Grafana Dashboard | http://localhost:3002/dashboards (admin/admin) |
-| Prometheus | http://localhost:9090 |
-| PostgreSQL | localhost:5434 (cacheiq/cacheiq) |
-
----
-
-### Opción B: Local (IntelliJ/IDE)
-
-1. Levantar servicios: `docker compose up -d postgres prometheus grafana`
-2. IDE: Run config → Main class: `com.cacheiq.CacheIqApplicationKt`, Environment: `GROQ_API_KEY=tu_key`
-3. Ejecutar: `./gradlew bootRun` (puerto 8080)
+| App | http://localhost:8080 |
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+| Presidio (PII) | http://localhost:3001 |
+| Grafana Dashboard | http://localhost:3004 (admin/admin) |
+| Prometheus | http://localhost:9092 |
+| PostgreSQL | localhost:5435 (cacheiq/cacheiq)
 
 ---
 
@@ -43,13 +49,13 @@ docker compose up -d
 
 ```bash
 #Primera pregunta (MISS - llama a Groq)
-curl -X POST http://localhost:8081/proxy/chat \
+curl -X POST http://localhost:8080/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
   -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
 
 #Repetir pregunta (HIT - usa cache, no llama a Groq)
-curl -X POST http://localhost:8081/proxy/chat \
+curl -X POST http://localhost:8080/proxy/chat \
   -H "Content-Type: application/json" \
   -H "X-Tenant-Id: demo" \
   -d '{"messages":[{"role":"user","content":"Que es Kotlin?"}], "model":"llama-3.3-70b-versatile"}'
@@ -59,8 +65,8 @@ curl -X POST http://localhost:8081/proxy/chat \
 
 | Herramienta | Qué ver |
 |-------------|---------|
-| **Grafana** | http://localhost:3002/dashboards → "CacheIQ Dashboard" - HIT/MISS, tokens ahorrados |
-| **Swagger** | http://localhost:8081/swagger-ui.html - probá endpoints |
+| **Grafana** | http://localhost:3004 → "CacheIQ Dashboard" - HIT/MISS, tokens ahorrados |
+| **Swagger** | http://localhost:8080/swagger-ui.html - probá endpoints |
 | **PostgreSQL** | localhost:5434 - tabla `cache_entries` con respuestas cacheadas |
 | **Response Headers** | `X-Cache: HIT` o `X-Cache: MISS` |
 
@@ -105,9 +111,51 @@ El modelo se pasa en el request y se configurable via `application.yml`.
 
 El proyecto incluye detección de datos sensibles en prompts para no guardarlos en cache.
 
-**RegexPiiDetector:** Rápido, sin dependencias, para demo.
+### Enfoque Híbrido: Regex + Presidio
 
-**Presidio:** Más avanzado (ML-based), pero requiere imagen Docker de ~1.3GB. El código existe pero no está habilitado.
+El sistema usa un enfoque de dos capas para detectar PII:
+
+| Prompt | Clasificación | Detector usado |
+|--------|--------------|--------------|
+| `"What is the weather in NYC?"` | NONE (técnico) | ❌ Sin detección |
+| `"My email is john@company.com"` | STRUCTURED (pattern `@`) | **Regex** → detecta email |
+| `"My phone is 11 9999-8888"` | STRUCTURED (pattern `\d{10,11}`) | **Regex** → detecta teléfono |
+| `"My CBU is 1234567890123456789012"` | STRUCTURED (pattern `\d{13,16}`) | **Regex** → detecta CBU |
+| `"I want to cancel my subscription"` | CONTEXTUAL (indicador personal) | **Regex** primero → no encuentra → **Presidio** |
+| `"Tell me my account balance"` | CONTEXTUAL (indicador personal) | **Regex** primero → no encuentra → **Presidio** |
+| `"Please update my data"` | CONTEXTUAL (indicador personal) | **Regex** primero → no encuentra → **Presidio** |
+
+### Flujo de Detección
+
+```
+Prompt
+   ↓
+¿Tiene pattern estructurado? (@, phone, CBU, DNI...)
+   ├── SÍ → Regex → listo
+   └── NO
+        ↓
+   ¿Tiene indicador personal? (my, account, cancel...)
+   ├── SÍ → Regex primero
+   │         └── Si no encuentra → Presidio
+   └── NO → STRUCTURED (default)
+```
+
+### Por qué no usar Presidio siempre
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  DATOS SENSIBLES = NO salen de tu infra                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+| Enfoque | Pros | Contras |
+|--------|------|---------|
+| **Regex** | Rápido, sin dependencia externa, sin datos sensibles fuera | Menos preciso en patrones complejos |
+| **Presidio** | Mejor precisión (ML) | Datos sensibles salen a servicio externo |
+
+### Presidio
+
+**Presidio:** Servicio de PII detection (ML-based) que se levanta automáticamente con Docker Compose en `http://localhost:3000`.
 
 ---
 
