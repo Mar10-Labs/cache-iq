@@ -3,6 +3,7 @@
 [![Kotlin](https://img.shields.io/badge/kotlin-21-blue)
 [![Spring Boot](https://img.shields.io/badge/spring_boot-3.2-green)
 [![Docker](https://img.shields.io/badge/docker-ready-blue)
+[![Medium](https://img.shields.io/badge/medium-article-blue)](https://medium.com/@magam.2004/your-llm-is-answering-the-same-question-over-and-over-796aabddbfc1)
 
 CacheIQ es un proxy de cache semántico que reduce costos de LLM almacenando respuestas basadas en embeddings. Si un usuario hace una pregunta similar a otra anterior, se devuelve la respuesta guardada sin llamar al LLM.
 
